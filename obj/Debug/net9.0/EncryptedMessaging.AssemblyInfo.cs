@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EncryptedMessaging")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a5564c0884d2721873758acc9a8d7ade07155759")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c560dedb22ee56f7d75eb691df2d3efa6d0f32aa")]
 [assembly: System.Reflection.AssemblyProductAttribute("EncryptedMessaging")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EncryptedMessaging")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

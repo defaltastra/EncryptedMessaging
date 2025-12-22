@@ -23,6 +23,7 @@ public class Application
         _messageService = new MessageService();
     }
 
+    // Compte les messages non lus
     private async Task<int> GetUnreadMessageCountAsync()
     {
         if (_currentUser == null) return 0;
@@ -38,16 +39,13 @@ public class Application
         while (true)
         {
             if (_currentUser == null)
-            {
                 await ShowLoginMenuAsync();
-            }
             else
-            {
                 await ShowMainMenuAsync();
-            }
         }
     }
 
+    // Écran d'accueil animé
     private async Task ShowAnimatedWelcomeAsync()
     {
         await AnsiConsole.Status()
@@ -60,7 +58,7 @@ public class Application
 
         Console.Clear();
         
-        var gradient = new string[]
+        var gradient = new[]
         {
             "[yellow]███████╗███╗   ██╗ ██████╗██████╗ ██╗   ██╗██████╗ ████████╗███████╗██████╗ [/]",
             "[orange3]██╔════╝████╗  ██║██╔════╝██╔══██╗╚██╗ ██╔╝██╔══██╗╚══██╔══╝██╔════╝██╔══██╗[/]",
@@ -76,11 +74,8 @@ public class Application
             await Task.Delay(100);
         }
 
-        var rule = new Rule("[yellow]Système de Messagerie Chiffré[/]")
-        {
-            Style = Style.Parse("olive")
-        };
-        AnsiConsole.Write(rule);
+        AnsiConsole.Write(new Rule("[yellow]Système de Messagerie Chiffré[/]") 
+            { Style = Style.Parse("olive") });
         
         await Task.Delay(500);
         AnsiConsole.MarkupLine("\n[dim]🔒 Chiffrement AES-256 | 🔑 Hash PBKDF2 | 🛡️ Sécurisé[/]\n");
@@ -94,11 +89,7 @@ public class Application
                 .Title("[yellow]═══[/] [orange3 bold]Bienvenue![/] [yellow]═══[/]\n Que souhaitez-vous faire?")
                 .PageSize(10)
                 .HighlightStyle(new Style(foreground: Color.Yellow, decoration: Decoration.Bold))
-                .AddChoices(new[] {
-                    "🔐 Se connecter",
-                    "📝 S'inscrire",
-                    "❌ Quitter"
-                }));
+                .AddChoices("🔐 Se connecter", "📝 S'inscrire", "❌ Quitter"));
 
         switch (choice)
         {
@@ -109,55 +100,52 @@ public class Application
                 await RegisterAsync();
                 break;
             case "❌ Quitter":
-                await AnsiConsole.Status()
-                    .StartAsync("[yellow]Fermeture...[/]", async ctx =>
-                    {
-                        ctx.Spinner(Spinner.Known.Dots);
-                        await Task.Delay(500);
-                    });
+                await AnsiConsole.Status().StartAsync("[yellow]Fermeture...[/]", async ctx =>
+                {
+                    ctx.Spinner(Spinner.Known.Dots);
+                    await Task.Delay(500);
+                });
                 AnsiConsole.MarkupLine("\n[green]👋 Au revoir![/]\n");
                 Environment.Exit(0);
                 break;
         }
     }
 
+    // Connexion utilisateur ou admin
     private async Task LoginAsync()
     {
         Console.Clear();
-        var panel = new Panel("[yellow]🔐 Connexion[/]")
+        AnsiConsole.Write(new Panel("[yellow]🔐 Connexion[/]")
         {
             Border = BoxBorder.Rounded,
             BorderStyle = new Style(foreground: Color.Yellow)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
         var username = AnsiConsole.Ask<string>("[orange3]Nom d'utilisateur:[/]");
-        var password = AnsiConsole.Prompt(
-            new TextPrompt<string>("[orange3]Mot de passe:[/]")
-                .Secret());
+        var password = AnsiConsole.Prompt(new TextPrompt<string>("[orange3]Mot de passe:[/]").Secret());
 
-        await AnsiConsole.Status()
-            .StartAsync("[yellow]Vérification...[/]", async ctx =>
+        await AnsiConsole.Status().StartAsync("[yellow]Vérification...[/]", async ctx =>
+        {
+            ctx.Spinner(Spinner.Known.Dots);
+            await Task.Delay(500);
+
+            // Vérification admin hardcodé
+            if (username.ToLower() == ADMIN_USERNAME && password == ADMIN_PASSWORD)
             {
-                ctx.Spinner(Spinner.Known.Dots);
-                await Task.Delay(500);
-
-                if (username.ToLower() == ADMIN_USERNAME && password == ADMIN_PASSWORD)
-                {
-                    _currentUser = new User 
-                    { 
-                        Id = -1, 
-                        Username = "admin", 
-                        PasswordHash = "",
-                        CreatedAt = DateTime.UtcNow 
-                    };
-                }
-                else
-                {
-                    _currentUser = await _authService.LoginAsync(username, password);
-                }
-            });
+                _currentUser = new User 
+                { 
+                    Id = -1, 
+                    Username = "admin", 
+                    PasswordHash = "",
+                    CreatedAt = DateTime.UtcNow 
+                };
+            }
+            else
+            {
+                _currentUser = await _authService.LoginAsync(username, password);
+            }
+        });
 
         if (_currentUser != null)
         {
@@ -167,23 +155,18 @@ public class Application
             }
             else
             {
-                // Check for unread messages
                 int unreadCount = await GetUnreadMessageCountAsync();
                 
                 if (unreadCount > 0)
                 {
-                    var notifPanel = new Panel(
-                        new Markup($"[yellow bold]🔔 Vous avez {unreadCount} nouveau(x) message(s)![/]"))
+                    AnsiConsole.Write(new Panel(new Markup($"[yellow bold]🔔 Vous avez {unreadCount} nouveau(x) message(s)![/]"))
                     {
                         Border = BoxBorder.Rounded,
                         BorderStyle = new Style(foreground: Color.Yellow)
-                    };
-                    AnsiConsole.Write(notifPanel);
+                    });
                 }
                 
                 AnsiConsole.MarkupLine($"\n[green]✓[/] Bienvenue, [bold orange3]{_currentUser.Username}[/]!");
-                
-                // Start live notification system
                 _notificationCancellation = new CancellationTokenSource();
             }
             await Task.Delay(2000);
@@ -197,24 +180,20 @@ public class Application
         Console.Clear();
     }
 
+    // Inscription nouvel utilisateur
     private async Task RegisterAsync()
     {
         Console.Clear();
-        var panel = new Panel("[yellow]📝 Inscription[/]")
+        AnsiConsole.Write(new Panel("[yellow]📝 Inscription[/]")
         {
             Border = BoxBorder.Rounded,
             BorderStyle = new Style(foreground: Color.Yellow)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
         var username = AnsiConsole.Ask<string>("[orange3]Choisir un nom d'utilisateur:[/]");
-        var password = AnsiConsole.Prompt(
-            new TextPrompt<string>("[orange3]Choisir un mot de passe (min. 6 caractères):[/]")
-                .Secret());
-        var confirmPassword = AnsiConsole.Prompt(
-            new TextPrompt<string>("[orange3]Confirmer le mot de passe:[/]")
-                .Secret());
+        var password = AnsiConsole.Prompt(new TextPrompt<string>("[orange3]Choisir un mot de passe (min. 6 caractères):[/]").Secret());
+        var confirmPassword = AnsiConsole.Prompt(new TextPrompt<string>("[orange3]Confirmer le mot de passe:[/]").Secret());
 
         if (password != confirmPassword)
         {
@@ -225,58 +204,31 @@ public class Application
         }
 
         User? user = null;
-        await AnsiConsole.Status()
-            .StartAsync("[yellow]Création du compte...[/]", async ctx =>
-            {
-                ctx.Spinner(Spinner.Known.Dots);
-                await Task.Delay(500);
-                user = await _authService.RegisterAsync(username, password);
-            });
-
-        if (user != null)
+        await AnsiConsole.Status().StartAsync("[yellow]Création du compte...[/]", async ctx =>
         {
-            AnsiConsole.MarkupLine($"\n[green]✓ Compte créé avec succès![/] Vous pouvez maintenant vous connecter.");
-            await Task.Delay(2000);
-        }
-        else
-        {
-            AnsiConsole.MarkupLine("\n[red]✗ Erreur: Ce nom d'utilisateur existe déjà ou est invalide.[/]");
-            await Task.Delay(2000);
-        }
+            ctx.Spinner(Spinner.Known.Dots);
+            await Task.Delay(500);
+            user = await _authService.RegisterAsync(username, password);
+        });
 
+        AnsiConsole.MarkupLine(user != null 
+            ? "\n[green]✓ Compte créé avec succès![/] Vous pouvez maintenant vous connecter."
+            : "\n[red]✗ Erreur: Ce nom d'utilisateur existe déjà ou est invalide.[/]");
+        
+        await Task.Delay(2000);
         Console.Clear();
     }
 
+    // Menu principal avec badge de notifications
     private async Task ShowMainMenuAsync()
     {
         int unreadCount = await GetUnreadMessageCountAsync();
         string notification = unreadCount > 0 ? $" [yellow bold]🔔 {unreadCount}[/]" : "";
         
-        var choices = new System.Collections.Generic.List<string>();
-
-        // Admin menu
-        if (_currentUser!.Id == -1)
-        {
-            choices.AddRange(new[] {
-                "👥 Gérer les utilisateurs",
-                "➕ Ajouter un utilisateur",
-                "📊 Statistiques",
-                "🔄 Rafraîchir",
-                "🚪 Se déconnecter"
-            });
-        }
-        else
-        {
-            // Regular user menu
-            choices.AddRange(new[] {
-                "📨 Envoyer un message",
-                $"📥 Messages reçus{(unreadCount > 0 ? $" [yellow]({unreadCount})[/]" : "")}",
-                "📤 Messages envoyés",
-                "👥 Liste des utilisateurs",
-                "🔄 Rafraîchir",
-                "🚪 Se déconnecter"
-            });
-        }
+        var choices = _currentUser!.Id == -1
+            ? new[] { "👥 Gérer les utilisateurs", "➕ Ajouter un utilisateur", "📊 Statistiques", "🔄 Rafraîchir", "🚪 Se déconnecter" }
+            : new[] { "📨 Envoyer un message", $"📥 Messages reçus{(unreadCount > 0 ? $" [yellow]({unreadCount})[/]" : "")}", 
+                     "📤 Messages envoyés", "👥 Liste des utilisateurs", "🔄 Rafraîchir", "🚪 Se déconnecter" };
 
         var title = _currentUser.Id == -1 
             ? $"[yellow]═══[/] [red bold]ADMIN[/] [yellow]═══[/]{notification}"
@@ -292,89 +244,94 @@ public class Application
         Console.Clear();
 
         if (_currentUser.Id == -1)
-        {
-            // Admin actions
-            switch (choice)
-            {
-                case "👥 Gérer les utilisateurs":
-                    await ManageUsersAsync();
-                    break;
-                case "➕ Ajouter un utilisateur":
-                    await AddUserAsync();
-                    break;
-                case "📊 Statistiques":
-                    await ViewStatisticsAsync();
-                    break;
-                case "🔄 Rafraîchir":
-                    AnsiConsole.MarkupLine("[yellow]🔄 Actualisation...[/]");
-                    await Task.Delay(500);
-                    Console.Clear();
-                    break;
-                case "🚪 Se déconnecter":
-                    _currentUser = null;
-                    AnsiConsole.MarkupLine("[green]✓ Déconnexion réussie.[/]");
-                    await Task.Delay(1000);
-                    Console.Clear();
-                    await ShowAnimatedWelcomeAsync();
-                    break;
-            }
-        }
+            await HandleAdminActionAsync(choice);
         else
+            await HandleUserActionAsync(choice);
+    }
+
+    // Actions admin
+    private async Task HandleAdminActionAsync(string choice)
+    {
+        switch (choice)
         {
-            // Regular user actions
-            var cleanChoice = choice.Split('[')[0].Trim();
-            switch (cleanChoice)
-            {
-                case "📨 Envoyer un message":
-                    await SendMessageAsync();
-                    break;
-                case "📥 Messages reçus":
-                    await ViewReceivedMessagesAsync();
-                    break;
-                case "📤 Messages envoyés":
-                    await ViewSentMessagesAsync();
-                    break;
-                case "👥 Liste des utilisateurs":
-                    await ViewUsersAsync();
-                    break;
-                case "🔄 Rafraîchir":
-                    AnsiConsole.MarkupLine("[yellow]🔄 Actualisation...[/]");
-                    await Task.Delay(500);
-                    Console.Clear();
-                    break;
-                case "🚪 Se déconnecter":
-                    _notificationCancellation?.Cancel();
-                    _currentUser = null;
-                    AnsiConsole.MarkupLine("[green]✓ Déconnexion réussie.[/]");
-                    await Task.Delay(1000);
-                    Console.Clear();
-                    await ShowAnimatedWelcomeAsync();
-                    break;
-            }
+            case "👥 Gérer les utilisateurs":
+                await ManageUsersAsync();
+                break;
+            case "➕ Ajouter un utilisateur":
+                await AddUserAsync();
+                break;
+            case "📊 Statistiques":
+                await ViewStatisticsAsync();
+                break;
+            case "🔄 Rafraîchir":
+                AnsiConsole.MarkupLine("[yellow]🔄 Actualisation...[/]");
+                await Task.Delay(500);
+                Console.Clear();
+                break;
+            case "🚪 Se déconnecter":
+                _currentUser = null;
+                AnsiConsole.MarkupLine("[green]✓ Déconnexion réussie.[/]");
+                await Task.Delay(1000);
+                Console.Clear();
+                await ShowAnimatedWelcomeAsync();
+                break;
+        }
+    }
+
+    // Actions utilisateur
+    private async Task HandleUserActionAsync(string choice)
+    {
+        var cleanChoice = choice.Split('[')[0].Trim();
+        
+        switch (cleanChoice)
+        {
+            case "📨 Envoyer un message":
+                await SendMessageAsync();
+                break;
+            case "📥 Messages reçus":
+                await ViewReceivedMessagesAsync();
+                break;
+            case "📤 Messages envoyés":
+                await ViewSentMessagesAsync();
+                break;
+            case "👥 Liste des utilisateurs":
+                await ViewUsersAsync();
+                break;
+            case "🔄 Rafraîchir":
+                AnsiConsole.MarkupLine("[yellow]🔄 Actualisation...[/]");
+                await Task.Delay(500);
+                Console.Clear();
+                break;
+            case "🚪 Se déconnecter":
+                _notificationCancellation?.Cancel();
+                _currentUser = null;
+                AnsiConsole.MarkupLine("[green]✓ Déconnexion réussie.[/]");
+                await Task.Delay(1000);
+                Console.Clear();
+                await ShowAnimatedWelcomeAsync();
+                break;
         }
     }
 
     private async Task SendMessageAsync()
     {
-        var panel = new Panel("[yellow]📨 Envoyer un message[/]")
+        AnsiConsole.Write(new Panel("[yellow]📨 Envoyer un message[/]")
         {
             Border = BoxBorder.Rounded,
             BorderStyle = new Style(foreground: Color.Yellow)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
         var receiver = AnsiConsole.Ask<string>("[orange3]Destinataire (nom d'utilisateur):[/]");
         var content = AnsiConsole.Ask<string>("[orange3]Message:[/]");
 
         Message? message = null;
-        await AnsiConsole.Status()
-            .StartAsync("[yellow]Envoi en cours...[/]", async ctx =>
-            {
-                ctx.Spinner(Spinner.Known.Dots);
-                message = await _messageService.SendMessageAsync(_currentUser!.Id, receiver, content);
-                await Task.Delay(500);
-            });
+        await AnsiConsole.Status().StartAsync("[yellow]Envoi en cours...[/]", async ctx =>
+        {
+            ctx.Spinner(Spinner.Known.Dots);
+            message = await _messageService.SendMessageAsync(_currentUser!.Id, receiver, content);
+            await Task.Delay(500);
+        });
 
         if (message != null)
         {
@@ -390,16 +347,16 @@ public class Application
         Console.Clear();
     }
 
+    // Affiche les messages reçus et les marque comme lus
     private async Task ViewReceivedMessagesAsync()
     {
         var messages = await _messageService.GetReceivedMessagesAsync(_currentUser!.Id);
 
-        var panel = new Panel("[yellow]📥 Messages reçus[/]")
+        AnsiConsole.Write(new Panel("[yellow]📥 Messages reçus[/]")
         {
             Border = BoxBorder.Rounded,
             BorderStyle = new Style(foreground: Color.Yellow)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
         if (messages.Count == 0)
@@ -411,8 +368,7 @@ public class Application
             return;
         }
 
-        var table = new Table();
-        table.Border = TableBorder.Rounded;
+        var table = new Table { Border = TableBorder.Rounded };
         table.BorderColor(Color.Yellow);
         table.AddColumn(new TableColumn("ID").Centered());
         table.AddColumn("De");
@@ -426,7 +382,7 @@ public class Application
             table.AddRow(
                 msg.Id.ToString(),
                 $"[orange3]{msg.SenderUsername}[/]",
-                msg.DecryptedContent.Length > 50 ? msg.DecryptedContent.Substring(0, 47) + "..." : msg.DecryptedContent,
+                msg.DecryptedContent.Length > 50 ? msg.DecryptedContent[..47] + "..." : msg.DecryptedContent,
                 msg.SentAt.ToLocalTime().ToString("dd/MM HH:mm"),
                 statusIcon
             );
@@ -434,14 +390,13 @@ public class Application
 
         AnsiConsole.Write(table);
 
-        // Auto-mark all unread messages as read
+        // Marquer automatiquement comme lus
         var unreadMessages = messages.Where(m => !m.IsRead).ToList();
         if (unreadMessages.Any())
         {
             foreach (var msg in unreadMessages)
-            {
                 await _messageService.MarkAsReadAsync(msg.Id, _currentUser.Id);
-            }
+            
             AnsiConsole.MarkupLine($"\n[green]✓ {unreadMessages.Count} message(s) marqué(s) comme lu(s).[/]");
         }
 
@@ -449,7 +404,7 @@ public class Application
             new SelectionPrompt<string>()
                 .Title("\n[yellow]Actions:[/]")
                 .HighlightStyle(new Style(foreground: Color.Yellow, decoration: Decoration.Bold))
-                .AddChoices(new[] { "🔄 Rafraîchir", "↩️ Retour au menu" }));
+                .AddChoices("🔄 Rafraîchir", "↩️ Retour au menu"));
 
         if (action == "🔄 Rafraîchir")
         {
@@ -465,12 +420,11 @@ public class Application
     {
         var messages = await _messageService.GetSentMessagesAsync(_currentUser!.Id);
 
-        var panel = new Panel("[yellow]📤 Messages envoyés[/]")
+        AnsiConsole.Write(new Panel("[yellow]📤 Messages envoyés[/]")
         {
             Border = BoxBorder.Rounded,
             BorderStyle = new Style(foreground: Color.Yellow)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
         if (messages.Count == 0)
@@ -482,8 +436,7 @@ public class Application
             return;
         }
 
-        var table = new Table();
-        table.Border = TableBorder.Rounded;
+        var table = new Table { Border = TableBorder.Rounded };
         table.BorderColor(Color.Yellow);
         table.AddColumn(new TableColumn("ID").Centered());
         table.AddColumn("À");
@@ -495,7 +448,7 @@ public class Application
             table.AddRow(
                 msg.Id.ToString(),
                 $"[orange3]{msg.ReceiverUsername}[/]",
-                msg.DecryptedContent.Length > 50 ? msg.DecryptedContent.Substring(0, 47) + "..." : msg.DecryptedContent,
+                msg.DecryptedContent.Length > 50 ? msg.DecryptedContent[..47] + "..." : msg.DecryptedContent,
                 msg.SentAt.ToLocalTime().ToString("dd/MM HH:mm")
             );
         }
@@ -506,7 +459,7 @@ public class Application
             new SelectionPrompt<string>()
                 .Title("\n[yellow]Actions:[/]")
                 .HighlightStyle(new Style(foreground: Color.Yellow, decoration: Decoration.Bold))
-                .AddChoices(new[] { "✏️ Modifier un message", "🗑️ Supprimer un message", "🔄 Rafraîchir", "↩️ Retour" }));
+                .AddChoices("✏️ Modifier un message", "🗑️ Supprimer un message", "🔄 Rafraîchir", "↩️ Retour"));
 
         if (action == "✏️ Modifier un message")
         {
@@ -542,16 +495,14 @@ public class Application
     {
         var users = await _messageService.GetAllUsersAsync();
 
-        var panel = new Panel("[yellow]👥 Utilisateurs enregistrés[/]")
+        AnsiConsole.Write(new Panel("[yellow]👥 Utilisateurs enregistrés[/]")
         {
             Border = BoxBorder.Rounded,
             BorderStyle = new Style(foreground: Color.Yellow)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
-        var table = new Table();
-        table.Border = TableBorder.Rounded;
+        var table = new Table { Border = TableBorder.Rounded };
         table.BorderColor(Color.Yellow);
         table.AddColumn(new TableColumn("ID").Centered());
         table.AddColumn("Nom d'utilisateur");
@@ -559,21 +510,11 @@ public class Application
 
         foreach (var user in users)
         {
-            string username;
-            if (user.Id == _currentUser!.Id)
-            {
-                username = $"[orange3 bold]{user.Username}[/] [yellow](vous)[/]";
-            }
-            else
-            {
-                username = user.Username;
-            }
+            var username = user.Id == _currentUser!.Id 
+                ? $"[orange3 bold]{user.Username}[/] [yellow](vous)[/]"
+                : user.Username;
 
-            table.AddRow(
-                user.Id.ToString(),
-                username,
-                user.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
-            );
+            table.AddRow(user.Id.ToString(), username, user.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy"));
         }
 
         AnsiConsole.Write(table);
@@ -582,22 +523,20 @@ public class Application
         Console.Clear();
     }
 
-    // Admin functions
+    // Gestion des utilisateurs (admin uniquement)
     private async Task ManageUsersAsync()
     {
         var users = await _messageService.GetAllUsersAsync();
         var userRepo = new Data.UserRepository();
 
-        var panel = new Panel("[red bold]👥 Gestion des utilisateurs (ADMIN)[/]")
+        AnsiConsole.Write(new Panel("[red bold]👥 Gestion des utilisateurs (ADMIN)[/]")
         {
             Border = BoxBorder.Double,
             BorderStyle = new Style(foreground: Color.Red)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
-        var table = new Table();
-        table.Border = TableBorder.Rounded;
+        var table = new Table { Border = TableBorder.Rounded };
         table.BorderColor(Color.Red);
         table.AddColumn(new TableColumn("ID").Centered());
         table.AddColumn("Nom d'utilisateur");
@@ -621,108 +560,17 @@ public class Application
             new SelectionPrompt<string>()
                 .Title("\n[yellow]Actions:[/]")
                 .HighlightStyle(new Style(foreground: Color.Red, decoration: Decoration.Bold))
-                .AddChoices(new[] { 
-                    "✏️ Modifier un utilisateur (créé par admin)", 
-                    "🗑️ Supprimer un utilisateur (créé par admin)", 
-                    "🔄 Rafraîchir",
-                    "↩️ Retour" 
-                }));
+                .AddChoices("✏️ Modifier un utilisateur (créé par admin)", 
+                           "🗑️ Supprimer un utilisateur (créé par admin)", 
+                           "🔄 Rafraîchir", "↩️ Retour"));
 
         if (action == "✏️ Modifier un utilisateur (créé par admin)")
         {
-            var userId = AnsiConsole.Ask<int>("[orange3]ID de l'utilisateur:[/]");
-            var userToModify = users.FirstOrDefault(u => u.Id == userId);
-            
-            if (userToModify == null)
-            {
-                AnsiConsole.MarkupLine("[red]✗ Utilisateur introuvable.[/]");
-                await Task.Delay(2000);
-                Console.Clear();
-                return;
-            }
-
-            if (!userToModify.PasswordHash.StartsWith("ADMIN_"))
-            {
-                AnsiConsole.MarkupLine("[red]✗ Vous ne pouvez modifier que les utilisateurs créés par l'admin.[/]");
-                await Task.Delay(2000);
-                Console.Clear();
-                return;
-            }
-
-            var newUsername = AnsiConsole.Confirm("Modifier le nom d'utilisateur?") 
-                ? AnsiConsole.Ask<string>($"[orange3]Nouveau nom (actuel: {userToModify.Username}):[/]")
-                : userToModify.Username;
-            
-            var changePassword = AnsiConsole.Confirm("Modifier le mot de passe?");
-            var newHash = userToModify.PasswordHash;
-            
-            if (changePassword)
-            {
-                var newPassword = AnsiConsole.Prompt(
-                    new TextPrompt<string>("[orange3]Nouveau mot de passe (min. 6 caractères):[/]")
-                        .Secret());
-                
-                if (newPassword.Length >= 6)
-                {
-                    newHash = "ADMIN_" + Security.PasswordHasher.HashPassword(newPassword);
-                }
-                else
-                {
-                    AnsiConsole.MarkupLine("[red]✗ Mot de passe trop court. Modification annulée.[/]");
-                    await Task.Delay(2000);
-                    Console.Clear();
-                    return;
-                }
-            }
-
-            var success = await userRepo.UpdateUserAsync(userId, newUsername, newHash);
-            
-            if (success)
-            {
-                AnsiConsole.MarkupLine($"[green]✓ Utilisateur {newUsername} modifié avec succès![/]");
-            }
-            else
-            {
-                AnsiConsole.MarkupLine("[red]✗ Erreur lors de la modification (nom d'utilisateur existe déjà?).[/]");
-            }
-            
-            await Task.Delay(2000);
+            await ModifyAdminUserAsync(users, userRepo);
         }
         else if (action == "🗑️ Supprimer un utilisateur (créé par admin)")
         {
-            var userId = AnsiConsole.Ask<int>("[orange3]ID de l'utilisateur à supprimer:[/]");
-            
-            var userToDelete = users.FirstOrDefault(u => u.Id == userId);
-            if (userToDelete == null)
-            {
-                AnsiConsole.MarkupLine("[red]✗ Utilisateur introuvable.[/]");
-                await Task.Delay(2000);
-                Console.Clear();
-                return;
-            }
-
-            if (!userToDelete.PasswordHash.StartsWith("ADMIN_"))
-            {
-                AnsiConsole.MarkupLine("[red]✗ Vous ne pouvez supprimer que les utilisateurs créés par l'admin.[/]");
-                await Task.Delay(2000);
-                Console.Clear();
-                return;
-            }
-
-            if (AnsiConsole.Confirm($"[red]Confirmer la suppression de {userToDelete.Username}?[/]"))
-            {
-                var success = await userRepo.DeleteUserAsync(userId);
-                
-                if (success)
-                {
-                    AnsiConsole.MarkupLine($"[green]✓ Utilisateur {userToDelete.Username} supprimé avec succès.[/]");
-                }
-                else
-                {
-                    AnsiConsole.MarkupLine("[red]✗ Erreur lors de la suppression.[/]");
-                }
-                await Task.Delay(2000);
-            }
+            await DeleteAdminUserAsync(users, userRepo);
         }
         else if (action == "🔄 Rafraîchir")
         {
@@ -734,20 +582,102 @@ public class Application
         Console.Clear();
     }
 
+    // Modifier un utilisateur créé par admin
+    private async Task ModifyAdminUserAsync(System.Collections.Generic.List<User> users, Data.UserRepository userRepo)
+    {
+        var userId = AnsiConsole.Ask<int>("[orange3]ID de l'utilisateur:[/]");
+        var userToModify = users.FirstOrDefault(u => u.Id == userId);
+        
+        if (userToModify == null)
+        {
+            AnsiConsole.MarkupLine("[red]✗ Utilisateur introuvable.[/]");
+            await Task.Delay(2000);
+            Console.Clear();
+            return;
+        }
+
+        if (!userToModify.PasswordHash.StartsWith("ADMIN_"))
+        {
+            AnsiConsole.MarkupLine("[red]✗ Vous ne pouvez modifier que les utilisateurs créés par l'admin.[/]");
+            await Task.Delay(2000);
+            Console.Clear();
+            return;
+        }
+
+        var newUsername = AnsiConsole.Confirm("Modifier le nom d'utilisateur?") 
+            ? AnsiConsole.Ask<string>($"[orange3]Nouveau nom (actuel: {userToModify.Username}):[/]")
+            : userToModify.Username;
+        
+        var newHash = userToModify.PasswordHash;
+        
+        if (AnsiConsole.Confirm("Modifier le mot de passe?"))
+        {
+            var newPassword = AnsiConsole.Prompt(new TextPrompt<string>("[orange3]Nouveau mot de passe (min. 6 caractères):[/]").Secret());
+            
+            if (newPassword.Length >= 6)
+            {
+                newHash = "ADMIN_" + Security.PasswordHasher.HashPassword(newPassword);
+            }
+            else
+            {
+                AnsiConsole.MarkupLine("[red]✗ Mot de passe trop court. Modification annulée.[/]");
+                await Task.Delay(2000);
+                Console.Clear();
+                return;
+            }
+        }
+
+        var success = await userRepo.UpdateUserAsync(userId, newUsername, newHash);
+        AnsiConsole.MarkupLine(success 
+            ? $"[green]✓ Utilisateur {newUsername} modifié avec succès![/]"
+            : "[red]✗ Erreur lors de la modification (nom d'utilisateur existe déjà?).[/]");
+        
+        await Task.Delay(2000);
+    }
+
+    // Supprimer un utilisateur créé par admin
+    private async Task DeleteAdminUserAsync(System.Collections.Generic.List<User> users, Data.UserRepository userRepo)
+    {
+        var userId = AnsiConsole.Ask<int>("[orange3]ID de l'utilisateur à supprimer:[/]");
+        var userToDelete = users.FirstOrDefault(u => u.Id == userId);
+        
+        if (userToDelete == null)
+        {
+            AnsiConsole.MarkupLine("[red]✗ Utilisateur introuvable.[/]");
+            await Task.Delay(2000);
+            Console.Clear();
+            return;
+        }
+
+        if (!userToDelete.PasswordHash.StartsWith("ADMIN_"))
+        {
+            AnsiConsole.MarkupLine("[red]✗ Vous ne pouvez supprimer que les utilisateurs créés par l'admin.[/]");
+            await Task.Delay(2000);
+            Console.Clear();
+            return;
+        }
+
+        if (AnsiConsole.Confirm($"[red]Confirmer la suppression de {userToDelete.Username}?[/]"))
+        {
+            var success = await userRepo.DeleteUserAsync(userId);
+            AnsiConsole.MarkupLine(success 
+                ? $"[green]✓ Utilisateur {userToDelete.Username} supprimé avec succès.[/]"
+                : "[red]✗ Erreur lors de la suppression.[/]");
+            await Task.Delay(2000);
+        }
+    }
+
     private async Task AddUserAsync()
     {
-        var panel = new Panel("[red bold]➕ Ajouter un utilisateur (ADMIN)[/]")
+        AnsiConsole.Write(new Panel("[red bold]➕ Ajouter un utilisateur (ADMIN)[/]")
         {
             Border = BoxBorder.Double,
             BorderStyle = new Style(foreground: Color.Red)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
         var username = AnsiConsole.Ask<string>("[orange3]Nom d'utilisateur:[/]");
-        var password = AnsiConsole.Prompt(
-            new TextPrompt<string>("[orange3]Mot de passe (min. 6 caractères):[/]")
-                .Secret());
+        var password = AnsiConsole.Prompt(new TextPrompt<string>("[orange3]Mot de passe (min. 6 caractères):[/]").Secret());
 
         if (password.Length < 6)
         {
@@ -757,27 +687,20 @@ public class Application
             return;
         }
 
-        // Prefix hash with "ADMIN_" to mark as admin-created
         var passwordHash = "ADMIN_" + Security.PasswordHasher.HashPassword(password);
         var userRepo = new Data.UserRepository();
         
         User? user = null;
-        await AnsiConsole.Status()
-            .StartAsync("[yellow]Création de l'utilisateur...[/]", async ctx =>
-            {
-                ctx.Spinner(Spinner.Known.Dots);
-                user = await userRepo.CreateUserAsync(username, passwordHash);
-                await Task.Delay(500);
-            });
+        await AnsiConsole.Status().StartAsync("[yellow]Création de l'utilisateur...[/]", async ctx =>
+        {
+            ctx.Spinner(Spinner.Known.Dots);
+            user = await userRepo.CreateUserAsync(username, passwordHash);
+            await Task.Delay(500);
+        });
 
-        if (user != null)
-        {
-            AnsiConsole.MarkupLine($"\n[green]✓ Utilisateur {username} créé avec succès![/]");
-        }
-        else
-        {
-            AnsiConsole.MarkupLine("\n[red]✗ Erreur: Ce nom d'utilisateur existe déjà.[/]");
-        }
+        AnsiConsole.MarkupLine(user != null 
+            ? $"\n[green]✓ Utilisateur {username} créé avec succès![/]"
+            : "\n[red]✗ Erreur: Ce nom d'utilisateur existe déjà.[/]");
 
         await Task.Delay(2000);
         Console.Clear();
@@ -789,32 +712,26 @@ public class Application
         var adminCreatedUsers = users.Count(u => u.PasswordHash.StartsWith("ADMIN_"));
         var userCreatedUsers = users.Count - adminCreatedUsers;
 
-        var panel = new Panel("[red bold]📊 Statistiques du système (ADMIN)[/]")
+        AnsiConsole.Write(new Panel("[red bold]📊 Statistiques du système (ADMIN)[/]")
         {
             Border = BoxBorder.Double,
             BorderStyle = new Style(foreground: Color.Red)
-        };
-        AnsiConsole.Write(panel);
+        });
         AnsiConsole.WriteLine();
 
-        var statsPanel = new Panel(
-            new Markup(
+        AnsiConsole.Write(new Panel(new Markup(
                 $"[orange3]👥 Utilisateurs totaux:[/] [white bold]{users.Count}[/]\n" +
                 $"[red]├─ Créés par admin:[/] [white]{adminCreatedUsers}[/]\n" +
                 $"[green]└─ Auto-inscrits:[/] [white]{userCreatedUsers}[/]\n\n" +
-                $"[green]✓ Système opérationnel[/]"
-            ))
+                $"[green]✓ Système opérationnel[/]"))
         {
             Header = new PanelHeader("📈 Tableau de bord", Justify.Center),
             Border = BoxBorder.Rounded,
             BorderStyle = new Style(foreground: Color.Yellow)
-        };
-
-        AnsiConsole.Write(statsPanel);
+        });
 
         AnsiConsole.WriteLine("\n\n[yellow]Liste complète des utilisateurs:[/]");
-        var table = new Table();
-        table.Border = TableBorder.Rounded;
+        var table = new Table { Border = TableBorder.Rounded };
         table.BorderColor(Color.Red);
         table.AddColumn(new TableColumn("ID").Centered());
         table.AddColumn("Utilisateur");
@@ -833,7 +750,6 @@ public class Application
         }
 
         AnsiConsole.Write(table);
-
         AnsiConsole.WriteLine("\n[dim]Appuyez sur Entrée pour continuer...[/]");
         Console.ReadLine();
         Console.Clear();

@@ -40,6 +40,7 @@ public static class DatabaseInitializer
                     FOREIGN KEY (ReceiverId) REFERENCES Users(Id) ON DELETE CASCADE
                 )";
 
+            // Index pour accélérer les recherches de messages par destinataire et par expéditeur
             string createIndexes = @"
                 CREATE INDEX IF NOT EXISTS idx_messages_receiver ON Messages(ReceiverId);
                 CREATE INDEX IF NOT EXISTS idx_messages_sender ON Messages(SenderId);
