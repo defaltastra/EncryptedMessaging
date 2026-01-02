@@ -376,17 +376,30 @@ public class Application
         table.AddColumn("Date");
         table.AddColumn(new TableColumn("Statut").Centered());
 
-        foreach (var msg in messages)
-        {
-            var statusIcon = msg.IsRead ? "[dim]✓ Lu[/]" : "[yellow bold]● Nouveau[/]";
-            table.AddRow(
-                msg.Id.ToString(),
-                $"[orange3]{msg.SenderUsername}[/]",
-                msg.DecryptedContent.Length > 50 ? msg.DecryptedContent[..47] + "..." : msg.DecryptedContent,
-                msg.SentAt.ToLocalTime().ToString("dd/MM HH:mm"),
-                statusIcon
-            );
-        }
+foreach (var msg in messages)
+{
+    var sender = msg.SenderUsername ?? "Inconnu";
+    var content = msg.DecryptedContent ?? string.Empty;
+
+    var statusIcon = msg.IsRead
+        ? "[dim]✓ Lu[/]"
+        : "[yellow bold]● Nouveau[/]";
+
+    var preview = content.Length > 50
+        ? content[..47] + "..."
+        : content;
+
+    preview = preview.Replace("[", "[[").Replace("]", "]]");
+
+    table.AddRow(
+        msg.Id.ToString(),
+        $"[orange3]{sender}[/]",
+        preview,
+        msg.SentAt.ToLocalTime().ToString("dd/MM HH:mm"),
+        statusIcon
+    );
+}
+
 
         AnsiConsole.Write(table);
 

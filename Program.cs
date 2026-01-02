@@ -9,10 +9,9 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        // Initialize database
-        DatabaseInitializer.Initialize();
         
-        // Start the application
+        DatabaseInitializer.Initialize();
+
         var app = new Application();
         await app.RunAsync();
     }
