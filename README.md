@@ -28,7 +28,7 @@ A secure terminal-based messaging application built with C# (.NET 9), featuring 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/encrypted-messaging.git
+git clone https://github.com/defaltastra/encrypted-messaging.git
 cd encrypted-messaging
 
 # Restore dependencies
